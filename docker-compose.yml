@@ -1,0 +1,39 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - 5428:5432
+  signdig:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      bash -c "python manage.py makemigrations &&
+               python manage.py migrate &&
+               python manage.py runserver 0.0.0.0:8080"
+    environment:
+    - HOST_IP=172.25.6.208
+    volumes:
+      - signdata:/signdig
+      - media:/media
+    ports:
+      - 8005:8080
+    depends_on:
+      - postgres
+  adminer:
+    image: adminer
+    ports:
+      - 8085:8080
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  signdata:
+  media:
