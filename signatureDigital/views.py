@@ -32,6 +32,8 @@ from rest_framework.permissions import IsAuthenticated
 from django.http import HttpRequest
 
 
+
+
 class SignedDocumentList(generics.ListCreateAPIView):
     queryset = signedDocument.objects.all()
     serializer_class = DocumentSignSerializer
@@ -105,6 +107,9 @@ class SignedDocumentList(generics.ListCreateAPIView):
 
 
 
+import base64
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from cryptography.x509 import load_pem_x509_certificate
 
 
 
@@ -116,37 +121,26 @@ class VerifySignatureView(generics.CreateAPIView):
         host_ip = os.environ.get('HOST_IP')
         token = self.request.META.get('HTTP_AUTHORIZATION', '').split(' ')[1]
         headers = {'Authorization': f'Bearer {token}'}
-        keys_url = 'http://'+str(host_ip)+':8002/api/keys/'
-        response = requests.get(url=keys_url, headers=headers)
-        data = json.loads(response.content.decode('utf-8'))
-        pubkey = load_pem_public_key(data[0]['publicKey'].encode())
-        print('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++=')
-        print(pubkey)
         
         doc_url = 'http://'+str(host_ip)+':8003/documents/doc/content/' + str(self.request.data.get('document_id'))
         responseDoc = requests.get(url=doc_url, headers=headers)
-        print(responseDoc)
-        print("111111")
-        print(responseDoc.content)
         
         # Retrieve document_id and actual document data from request data
         document_id = request.data.get('document_id')
         actual_document = responseDoc.content
-        print(actual_document)
         # Retrieve signed document object from database
         signed_doc = get_object_or_404(signedDocument, document_id=document_id)
 
         # Extract public key, certificate, and signature from signed document object
         cert = signed_doc.cert.encode('utf-8')
         signature = base64.b64decode(signed_doc.signature.encode('utf-8'))
-        print(signature)
-        
-        
-        
+
 
         # Verify certificate
         try:
             cert_obj = x509.load_pem_x509_certificate(cert, default_backend())
+            public_key = cert_obj.public_key()
+            print(public_key)
             cert_obj.public_key().verify(
                 signature,
                 actual_document,
@@ -165,7 +159,11 @@ class VerifySignatureView(generics.CreateAPIView):
         
         print("Verifying Signature")
         h = SHA256.new(actual_document)
-        rsa = RSA.importKey(data[0]['publicKey'])
+        rsa = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        rsa = RSA.import_key(rsa)
         signer = PKCS1_v1_5.new(rsa)
         rsp = {'message': 'Signature verification successful'} if (signer.verify(h, signature)) else {'message': 'Signature verification failed'}
         print(rsp)
@@ -202,6 +200,19 @@ class GetCert(generics.RetrieveAPIView):
         })
 
         
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

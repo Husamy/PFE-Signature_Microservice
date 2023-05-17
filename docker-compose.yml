@@ -10,6 +10,8 @@ services:
       - POSTGRES_PASSWORD=postgres
     ports:
       - 5428:5432
+    networks:
+      - pfenetwork
   signdig:
     build:
       context: .
@@ -19,12 +21,11 @@ services:
                python manage.py migrate &&
                python manage.py runserver 0.0.0.0:8080"
     environment:
-    - HOST_IP=172.25.6.208
+    - HOST_IP=192.168.28.176
     volumes:
       - signdata:/signdig
-      - media:/media
     ports:
-      - 8005:8080
+      - "8010:8080"
     depends_on:
       - postgres
   adminer:
@@ -33,7 +34,10 @@ services:
       - 8085:8080
     restart: unless-stopped
 
+networks:
+  pfenetwork:
+    driver: bridge
+
 volumes:
   pgdata:
   signdata:
-  media:
